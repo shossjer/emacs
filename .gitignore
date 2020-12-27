@@ -1,0 +1,7 @@
+*
+
+!.gitignore
+!LICENSE.txt
+!init.el
+!emoji-utils.el
+!project-utils.el
