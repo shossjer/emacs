@@ -132,9 +132,34 @@
 
 ;; formatting
 
-(setq-default
- tab-width 6
- indent-tabs-mode nil)
+(setq-default tab-width 6
+              indent-tabs-mode nil)
+
+(when (require 'cc-mode nil t)
+  (setq-default c-basic-offset 3)
+  (defun init-cc-mode ()
+    (setq tab-width 3
+          indent-tabs-mode t
+          c-default-style "linux"
+          c-auto-align-backslashes nil)
+    (font-lock-add-keywords nil '(("/[/*] \\(idea\\)" 1 'font-lock-string-face prepend)
+                                  ("/[/*] \\(note\\)" 1 'font-lock-keyword-face prepend)
+                                  ("/[/*] \\(todo\\)" 1 'font-lock-constant-face prepend)))
+    )
+  (add-hook 'c-mode-common-hook 'init-cc-mode)
+  (add-hook 'c-mode-common-hook #'linum-mode)
+  (defun init-c++-mode ()
+    ;; makes vvvv
+    ;; void foo()
+    ;;     {
+    ;; ^^^^ into vvvv
+    ;; void foo()
+    ;; {
+    ;; ^^^^
+    (c-set-offset 'inline-open 0)
+    )
+  (add-hook 'c++-mode-hook 'init-c++-mode)
+  )
 
 (when (require 'smart-tabs-mode nil t)
   (when (require 'cmake-mode nil t)
