@@ -227,12 +227,13 @@
 ;; grep
 
 (grep-compute-defaults)
+(add-to-list 'grep-find-ignored-directories "build*")
 (defun project-rgrep (regexp)
   "Run rgrep in project dir, fallback to local dir."
   (interactive "sRegex to grep for: ")
   (let ((dirpath (get-project-or-local-folder)))
     (rgrep regexp project-grep-patterns dirpath)))
-(define-key global-map (kbd "C-c M-f") 'project-rgrep)
+(define-key global-map (kbd "C-c g p") 'project-rgrep)
 
 ;; compile
 
