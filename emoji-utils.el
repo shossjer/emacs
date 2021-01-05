@@ -1,3 +1,5 @@
+(require 'ht)
+
 ;; https://emacs.stackexchange.com/a/14716
 (defun in-comment-p (pos)
   "Checks whether the position is at a comment."
@@ -9,25 +11,18 @@
 
 (defun parse-possible-emojis (fname)
   "Parse file for emojis."
-  (let ((emojis nil))
-    (with-temp-buffer
-      (insert-file-contents fname)
-      (beginning-of-buffer)
-      (while (re-search-forward "<span id=\"[^\"]*\" class=\"emoji\" data-src=\"[^\"]*\"></span>:<span class=\"name\" data-alternative-name=\"\\([^\"]*\\)\">\\([^<]*\\)</span>:</div></li>" nil t)
-        (setf emojis (cons (cons (match-string 2) (split-string (match-string 1) ", ")) emojis)))
-      emojis)))
+  (let ((json-array-type 'list)
+        (json-object-type 'hash-table))
+    (mapcar (lambda (x) (list (string-trim x ":" ":"))) (ht-keys (json-read-file fname))))
+  )
 
 (defun get-possible-emojis ()
   "Get a list of all possible GitHub emojis.
 
-According to GitHub's own blog (see
-https://github.blog/2012-10-12-emoji-autocomplete/) the official
-list of emojis supported are given by WebFX (at
-https://www.webfx.com/tools/emoji-cheat-sheet/). This function
-fetches that list and parses it."
+Downloads the list of support emojis from githubs own API."
   (let* ((downloaddir "~/.emacs.d/downloads")
-         (fname (concat downloaddir "/emoji-cheat-sheet")))
+         (fname (concat downloaddir "/github-emojis.json")))
     (unless (file-readable-p fname)
       (mkdir downloaddir t)
-      (url-copy-file "https://www.webfx.com/tools/emoji-cheat-sheet/" fname t))
+      (url-copy-file "https://api.github.com/emojis" fname t))
     (parse-possible-emojis fname)))
