@@ -13,11 +13,15 @@
   (let ((dirpath (file-name-directory filepath)))
     (find-cmake-root--impl dirpath)))
 
-(defun get-project-or-local-folder ()
-  "Return project dir if applicable and local dir otherwise."
-  (let ((filepath (buffer-file-name)))
-    (when filepath
-      (let ((project-folder (find-cmake-root filepath)))
-        (if project-folder
-            project-folder
-          (file-name-directory filepath))))))
+(defun get-project-folder (&optional filepath)
+  "Return project directory for the given file (defaults to buffer-file-name)."
+  (let ((filepath-or-bufferpath (or filepath (buffer-file-name))))
+    (when filepath-or-bufferpath
+      (find-cmake-root filepath-or-bufferpath))))
+
+(defun get-project-or-local-folder (&optional filepath)
+  "Return project directory for the given file (defaults to buffer-file-name), or the local directory."
+  (let ((filepath-or-bufferpath (or filepath (buffer-file-name))))
+    (when filepath-or-bufferpath
+      (or (get-project-folder filepath-or-bufferpath)
+          (file-name-directory filepath-or-bufferpath)))))
