@@ -181,6 +181,12 @@
   (smart-tabs-insinuate 'c 'c++ 'javascript 'python 'cmake)
   )
 
+;; yasnippet
+
+(when (require 'yasnippet nil t)
+  (yas-global-mode t)
+  )
+
 ;; company
 
 (when (require 'company nil t)
@@ -313,3 +319,22 @@ project-configurations."
   (global-emojify-mode)
   (setq emojify-point-entered-behaviour 'uncover)
   )
+
+;; lsp mode
+
+(when (require 'lsp-mode nil t)
+  (setq lsp-idle-delay 0.1)
+  (setq lsp-headerline-breadcrumb-enable t)
+  (setq lsp-diagnostic-package :none)
+  (setq lsp-completion-enable-additional-text-edit nil) ; disable adding includes
+  (setq lsp-enable-on-type-formatting nil)
+  (when (require 'cc-mode nil t)
+    (add-hook 'c-mode-common-hook 'lsp)
+    )
+  (define-key lsp-mode-map (kbd "C-c") lsp-command-map)
+  )
+
+(when (require 'lsp-treemacs nil t)
+  (setq treemacs-space-between-root-nodes nil)
+  )
+
