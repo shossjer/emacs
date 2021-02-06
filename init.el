@@ -131,8 +131,8 @@
 (when (require 'avy nil t)
   (when (eq keyboard-layout 'dvorak)
     (setq avy-keys '(?a ?o ?e ?u ?i ?d ?h ?t ?n ?s)))
-  (define-key global-map (kbd "M-g s") 'avy-goto-char)
-  (define-key global-map (kbd "M-g g") 'avy-goto-line)
+  (define-key global-map (kbd "M-g M-c") 'avy-goto-char)
+  (define-key global-map (kbd "M-g M-g") 'avy-goto-line)
   )
 
 ;; multiple cursors
