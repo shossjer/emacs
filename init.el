@@ -176,10 +176,19 @@
   (add-hook 'c++-mode-hook 'init-c++-mode)
   )
 
-(when (require 'smart-tabs-mode nil t)
-  (when (require 'cmake-mode nil t)
+(when (require 'cmake-mode nil t)
+  (setq-default cmake-tab-width 3)
+  (defun init-cmake-mode ()
+    (setq tab-width 3
+          indent-tabs-mode t)
+    )
+  (add-hook 'cmake-mode-hook 'init-cmake-mode)
+  (when (require 'smart-tabs-mode nil t)
     (smart-tabs-add-language-support cmake cmake-mode-hook
       ((cmake-indent . cmake-tab-width))))
+  )
+
+(when (require 'smart-tabs-mode nil t)
   (smart-tabs-insinuate 'c 'c++ 'javascript 'python 'cmake)
   )
 
