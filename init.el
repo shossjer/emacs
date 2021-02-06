@@ -148,6 +148,8 @@
 (setq-default tab-width 6
               indent-tabs-mode nil)
 
+(add-hook 'prog-mode-hook #'linum-mode)
+
 (when (require 'cc-mode nil t)
   (setq-default c-basic-offset 3)
   (defun init-cc-mode ()
