@@ -39,19 +39,6 @@
   :type 'string
   )
 
-(defcustom project-configurations
-  '(("clang-4-x64-debug" "/usr/bin/clang-4.0" "/usr/bin/clang++-4.0" "Debug")
-    ("clang-4-x64-release" "/usr/bin/clang-4.0" "/usr/bin/clang++-4.0" "Release")
-    ("clang-10-x64-debug" "/usr/bin/clang-10" "/usr/bin/clang++-10" "Debug")
-    ("clang-10-x64-release" "/usr/bin/clang-10" "/usr/bin/clang++-10" "Release"))
-  "Alist of available configurations."
-  :group 'environment
-  :type '(alist :key-type (symbol :tag "Key")
-                :value-type (list (file :must-match t :tag "CC")
-                                  (file :must-match t :tag "CXX")
-                                  (string :tag "BuildType")))
-  )
-
 ;; ui elements
 
 (menu-bar-mode -1)
@@ -248,81 +235,14 @@
 (defun project-rgrep (regexp)
   "Run rgrep in project dir, fallback to local dir."
   (interactive "sRegex to grep for: ")
-  (let ((dirpath (get-project-or-local-folder)))
-    (rgrep regexp project-grep-patterns dirpath)))
+  (let* ((project (project-find))
+         (pdir (plist-get project 'pdir)))
+    (rgrep regexp project-grep-patterns pdir)))
 (define-key global-map (kbd "C-c g p") 'project-rgrep)
 
 ;; compile
 
 (setq compilation-scroll-output 'first-error)
-
-;; project
-
-(setq project--configuration nil)
-
-(defun project--configuration-set (configuration pdir bdir)
-  "Sets the configuration."
-  (when (featurep 'lsp-mode)
-    (unless (equal configuration project--configuration)
-      (let* ((sfile (concat pdir "compile_commands.json"))
-             (tfile (concat bdir "compile_commands.json")))
-        (when (file-exists-p sfile)
-          (delete-file sfile))
-        (make-symbolic-link tfile sfile)
-        (lsp-restart-workspace))))
-  (setq project--configuration configuration)
-  )
-
-(defun project-configure--finish (buffer state)
-  (remove-hook 'compilation-finish-functions 'project-configure--finish)
-  (when (equal state "finished")
-    (project-build project--configuration)))
-
-(defun project-configure (configuration &optional projectdir build-on-success)
-  "Configure project.
-
-Interactively ask which configuration to use, as specified by
-project-configurations."
-  (interactive
-   (list
-    (let ((prompt (if project--configuration
-                      (format "Configuration (default %s): " project--configuration)
-                    "Configuration: ")))
-      (completing-read prompt project-configurations nil t nil nil project--configuration))))
-  (let* ((pdir (or projectdir (get-project-folder) (error "Could not get project folder")))
-         (bdir (file-name-as-directory (concat pdir "build-" configuration))))
-    (unless (file-accessible-directory-p bdir)
-      (message "Making directory %s" bdir)
-      (make-directory bdir))
-    (when build-on-success
-      (add-hook 'compilation-finish-functions 'project-configure--finish))
-    (let* ((conf (assoc configuration project-configurations))
-           (bincc (cadr conf))
-           (binc++ (caddr conf))
-           (btype (cadddr conf)))
-      (project--configuration-set configuration pdir bdir)
-      (compile (concat "CC=" bincc " CXX=" binc++ " cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=" btype " -S " pdir " -B " bdir)))))
-(define-key global-map (kbd "C-c b c") 'project-configure)
-
-(defun project-build (configuration &optional projectdir)
-  "Build project.
-
-Interactively ask which configuration to use, as specified by
-project-configurations."
-  (interactive
-   (list
-    (let ((prompt (if project--configuration
-                      (format "Configuration (default %s): " project--configuration)
-                    "Configuration: ")))
-      (completing-read prompt project-configurations nil t nil nil project--configuration))))
-  (let* ((pdir (or projectdir (get-project-folder) (error "Could not get project folder")))
-         (bdir (file-name-as-directory (concat pdir "build-" configuration)))
-         (bfile (concat bdir "Makefile")))
-    (if (file-exists-p bfile)
-        (progn (project--configuration-set configuration pdir bdir)
-               (compile (concat "make -C " bdir)))
-      (project-configure configuration pdir t))))
-(define-key global-map (kbd "C-c b b") 'project-build)
 
 ;; emojify
 
