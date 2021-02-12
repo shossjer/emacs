@@ -1,4 +1,6 @@
 (require 'cl-extra)
+(require 'cl-generic)
+(require 'project)
 
 (defcustom projext-toolchains
   nil
@@ -93,8 +95,10 @@
 
 (setq projext-types '((ptype cmake pfiles ("CMakeLists.txt") pconf projext--configure-cmake pbuild projext--build-cmake)
                       (ptype make pfiles ("Makefile") pconf projext--configure-make pbuild projext--build-make)
-                      (pfiles (".git"))))
+		          ))
 
+
+;; project integration
 
 (defun projext-find--impl (dir)
   "Recursive implementation step."
@@ -107,53 +111,38 @@
                      (when (cl-every (lambda (file)
                                        (file-exists-p (concat dir file)))
                                      files)
-                       (cons 'pdir (cons dir type)))))
+                       (cons 'projext (cons 'pdir (cons dir type))))))
                  projext-types)))
   )
 
-(defun projext-find ()
+(defun projext-find (dir)
   "Find the top-most projext for the active buffer."
-  (interactive)
-  (let ((guessdir (or (and (vc-root-dir) (file-truename (vc-root-dir)))
-                      (file-name-directory (buffer-file-name)))))
-    (projext-find--impl guessdir))
+  (projext-find--impl (file-truename dir))
   )
+(add-hook 'project-find-functions 'projext-find)
+
+(cl-defmethod project-root ((project (head projext)))
+  (plist-get (cdr project) 'pdir))
 
 
-(setq projext-configure--cached-settings nil)
-
-(defun projext-configure--get-cached-settings (projext)
-  (let ((pdir (plist-get projext 'pdir)))
-    (cl-some (lambda (x)
-               (when (equal pdir (plist-get x 'pdir))
-                 x))
-             projext-configure--cached-settings))
-  )
-
-(defun projext-configure--set-cached-settings (settings)
-  (let ((pdir (plist-get settings 'pdir)))
-    (setq projext-configure--cached-settings (cons settings (cl-delete-if (lambda (x) (equal pdir (plist-get x 'pdir)))
-                                                                          projext-configure--cached-settings))))
-  )
-
+;; bindings
 
 (defun projext-configure (settings)
   "Configure projext.
 
 Interactively configures the projext found by projext-find."
   (interactive
-   (let* ((projext (or (projext-find) (error "Cannot find projext")))
-          (cached-settings (projext-configure--get-cached-settings projext))
-          (current-settings (or cached-settings projext)))
+   (let* ((projext (or (project-current t) (error "Cannot find project")))
+          (settings (and (or (eq (car projext) 'projext) (error "Unsupported project type"))
+                         (cdr projext))))
      (when (or current-prefix-arg
-               (not (eq (plist-get cached-settings 'ptype) (plist-get projext 'ptype))))
-       (setq current-settings (plist-put current-settings 'cstat nil)))
-     (unless (plist-get current-settings 'cstat)
-       (let ((conffn (or (plist-get current-settings 'pconf) (error "Cannot configure projext"))))
-         (setq current-settings (funcall conffn current-settings))))
-     (projext-configure--set-cached-settings current-settings)
-     (list
-      current-settings)))
+               (not (eq (plist-get settings 'ptype) (plist-get settings 'ptype))))
+       (setq settings (plist-put settings 'cstat nil)))
+     (unless (plist-get settings 'cstat)
+       (let ((conffn (or (plist-get settings 'pconf) (error "Cannot configure projext"))))
+         (setq settings (funcall conffn settings))))
+     (project-remember-project (cons 'projext settings))
+     (list settings)))
   (let ((bdir (plist-get settings 'bdir))
         (ccmd (plist-get settings 'ccmd)))
     (when bdir
@@ -163,44 +152,43 @@ Interactively configures the projext found by projext-find."
     (when ccmd
       (compile ccmd)))
   )
-(define-key global-map (kbd "C-c b c") 'projext-configure)
+(define-key global-map (kbd "C-x p q") 'projext-configure)
 
 (defun projext-build (settings)
   "Build projext."
   (interactive
-   (let* ((projext (or (projext-find) (error "Cannot find projext")))
-          (cached-settings (projext-configure--get-cached-settings projext))
-          (current-settings (or cached-settings projext)))
+   (let* ((projext (or (project-current t) (error "Cannot find project")))
+          (settings (and (or (eq (car projext) 'projext) (error "Unsupported project type"))
+                         (cdr projext))))
      (when (or current-prefix-arg
-               (not (eq (plist-get cached-settings 'ptype) (plist-get projext 'ptype))))
-       (setq current-settings (plist-put current-settings 'bstat nil)))
-     (unless (plist-get current-settings 'bstat)
-       (let ((buildfn (or (plist-get current-settings 'pbuild) (error "Cannot build projext"))))
-         (setq current-settings (funcall buildfn current-settings))))
-     (projext-configure--set-cached-settings current-settings)
-     (list
-      current-settings)))
+               (not (eq (plist-get settings 'ptype) (plist-get settings 'ptype))))
+       (setq settings (plist-put settings 'bstat nil)))
+     (unless (plist-get settings 'bstat)
+       (let ((buildfn (or (plist-get settings 'pbuild) (error "Cannot build projext"))))
+         (setq settings (funcall buildfn settings))))
+     (project-remember-project (cons 'projext settings))
+     (list settings)))
   (let ((bcmd (plist-get settings 'bcmd)))
     (when bcmd
       (compile bcmd)))
   )
-(define-key global-map (kbd "C-c b b") 'projext-build)
+(define-key global-map (kbd "C-x p c") 'projext-build)
 
 (defun projext-run (settings)
   "Run projext."
   (interactive
-   (let* ((projext (or (projext-find) (error "Cannot find projext")))
-          (cached-settings (projext-configure--get-cached-settings projext))
-          (current-settings (or cached-settings projext)))
-     (when current-prefix-arg
-       (setq current-settings (plist-put current-settings 'rstat nil)))
-     (unless (plist-get current-settings 'rstat)
-       (setq current-settings (projext--run-binary current-settings)))
-     (projext-configure--set-cached-settings current-settings)
-     (list
-      current-settings)))
+   (let* ((projext (or (project-current t) (error "Cannot find project")))
+          (settings (and (or (eq (car projext) 'projext) (error "Unsupported project type"))
+                         (cdr projext))))
+     (when (or current-prefix-arg
+               (not (eq (plist-get settings 'ptype) (plist-get settings 'ptype))))
+       (setq settings (plist-put settings 'rstat nil)))
+     (unless (plist-get settings 'rstat)
+       (setq settings (projext--run-binary settings)))
+     (project-remember-project (cons 'projext settings))
+     (list settings)))
   (let ((rcmd (plist-get settings 'rcmd)))
     (when rcmd
       (compile rcmd)))
   )
-(define-key global-map (kbd "C-c b r") 'projext-run)
+(define-key global-map (kbd "C-x p u") 'projext-run)
