@@ -168,6 +168,9 @@
   (defun init-cmake-mode ()
     (setq tab-width 3
           indent-tabs-mode t)
+    (font-lock-add-keywords nil '(("# \\(idea\\)" 1 'font-lock-string-face prepend)
+                                  ("# \\(note\\)" 1 'font-lock-keyword-face prepend)
+                                  ("# \\(todo\\)" 1 'font-lock-constant-face prepend)))
     )
   (add-hook 'cmake-mode-hook 'init-cmake-mode)
   (when (require 'smart-tabs-mode nil t)
