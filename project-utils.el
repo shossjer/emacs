@@ -31,6 +31,14 @@
     (plist-put (plist-put (plist-put settings prop toolchain) 'tcc (nth 0 data)) 'tcxx (nth 1 data)))
   )
 
+(defun projext--prompt-arguments (settings prop)
+  (let* ((cached (plist-get settings prop))
+         (prompt (if cached
+                     (format "Arguments (default %s): " cached)
+                   "Arguments: "))
+         (arguments (read-string prompt nil nil cached)))
+    (plist-put settings prop arguments)))
+
 (defun projext--prompt-executable (settings prop)
   (let* ((cached (plist-get settings prop))
          (prompt (if cached
@@ -89,9 +97,11 @@
 
 (defun projext--run-binary (settings)
   (let* ((settings-with-executable (projext--prompt-executable settings 'rbin))
-         (rbin (plist-get settings-with-executable 'rbin))
-         (rcmd (concat rbin "")))
-    (plist-put (plist-put settings-with-executable 'rcmd rcmd) 'rstat t)))
+         (settings-with-arguments (projext--prompt-arguments settings-with-executable 'rarg))
+         (rbin (plist-get settings-with-arguments 'rbin))
+         (rarg (plist-get settings-with-arguments 'rarg))
+         (rcmd (concat rbin " " rarg)))
+    (plist-put (plist-put settings-with-arguments 'rcmd rcmd) 'rstat t)))
 
 (setq projext-types '((ptype cmake pfiles ("CMakeLists.txt") pconf projext--configure-cmake pbuild projext--build-cmake)
                       (ptype make pfiles ("Makefile") pconf projext--configure-make pbuild projext--build-make)
