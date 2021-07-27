@@ -112,8 +112,14 @@
 (put 'downcase-region 'disabled nil)
 (put 'upcase-region 'disabled nil)
 
+;; magit
+
+(when (require 'magit nil t)
+  (setq initial-buffer-choice (lambda () (magit-status-setup-buffer)))
+  (add-hook 'git-commit-setup-hook 'git-commit-turn-on-flyspell)
+  )
+
 ;; avy
-;; M-g
 
 (when (require 'avy nil t)
   (when (eq keyboard-layout 'dvorak)
@@ -212,13 +218,6 @@
   ;;;; make sure dabbrev is last, else emojis will not work in e.g. git commits
   (delete 'company-dabbrev company-backends)
   (add-to-list 'company-backends 'company-dabbrev t)
-  )
-
-;; magit
-;; C-c M-g
-
-(when (require 'magit nil t)
-  (add-hook 'git-commit-setup-hook 'git-commit-turn-on-flyspell)
   )
 
 ;; org mode
