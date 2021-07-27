@@ -134,6 +134,16 @@
 (cl-defmethod project-root ((project (head projext)))
   (plist-get (cdr project) 'pdir))
 
+(cl-defmethod project-files ((project (head projext)) &optional dirs)
+  (let* ((pdir (plist-get (cdr project) 'pdir))
+         (project-vc (cons 'vc pdir)))
+    (project-files project-vc dirs)))
+
+(cl-defmethod project-ignores ((project (head projext)) dir)
+  (let* ((pdir (plist-get (cdr project) 'pdir))
+         (project-vc (cons 'vc pdir)))
+    (project-ignores project-vc dir)))
+
 
 ;; bindings
 

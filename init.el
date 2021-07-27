@@ -33,12 +33,6 @@
           )
   )
 
-(defcustom project-grep-patterns "*.c *.cpp *.el *.h *.hpp *.ini *.json *.py *.txt"
-  "String of file patterns to grep for."
-  :group 'files
-  :type 'string
-  )
-
 ;; ui elements
 
 (menu-bar-mode -1)
@@ -229,18 +223,6 @@
  org-edit-src-content-indentation 0
  org-enforce-todo-dependencies t
  )
-
-;; grep
-
-(grep-compute-defaults)
-(add-to-list 'grep-find-ignored-directories "build*")
-(defun project-rgrep (regexp)
-  "Run rgrep in project dir, fallback to local dir."
-  (interactive "sRegex to grep for: ")
-  (let* ((project (project-find))
-         (pdir (plist-get project 'pdir)))
-    (rgrep regexp project-grep-patterns pdir)))
-(define-key global-map (kbd "C-c g p") 'project-rgrep)
 
 ;; compile
 
