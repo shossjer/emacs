@@ -135,7 +135,13 @@
 (setq-default tab-width 6
               indent-tabs-mode nil)
 
-(add-hook 'prog-mode-hook #'linum-mode)
+(defun init-prog-mode ()
+  (linum-mode)
+  (font-lock-add-keywords nil '(("\\s< \\(idea\\)" 1 'font-lock-string-face prepend)
+                                ("\\s< \\(note\\)" 1 'font-lock-keyword-face prepend)
+                                ("\\s< \\(todo\\)" 1 'font-lock-constant-face prepend)))
+  )
+(add-hook 'prog-mode-hook 'init-prog-mode)
 
 (when (require 'cc-mode nil t)
   (setq-default c-basic-offset 3)
@@ -144,9 +150,6 @@
           indent-tabs-mode t
           c-default-style "linux"
           c-auto-align-backslashes nil)
-    (font-lock-add-keywords nil '(("/[/*] \\(idea\\)" 1 'font-lock-string-face prepend)
-                                  ("/[/*] \\(note\\)" 1 'font-lock-keyword-face prepend)
-                                  ("/[/*] \\(todo\\)" 1 'font-lock-constant-face prepend)))
     )
   (add-hook 'c-mode-common-hook 'init-cc-mode)
   (add-hook 'c-mode-common-hook #'linum-mode)
@@ -168,9 +171,6 @@
   (defun init-cmake-mode ()
     (setq tab-width 3
           indent-tabs-mode t)
-    (font-lock-add-keywords nil '(("# \\(idea\\)" 1 'font-lock-string-face prepend)
-                                  ("# \\(note\\)" 1 'font-lock-keyword-face prepend)
-                                  ("# \\(todo\\)" 1 'font-lock-constant-face prepend)))
     )
   (add-hook 'cmake-mode-hook 'init-cmake-mode)
   (when (require 'smart-tabs-mode nil t)
