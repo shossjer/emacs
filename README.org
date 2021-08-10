@@ -1,0 +1,201 @@
+* Issues
+
+  Yes.
+
+* Windows with WSL
+
+  WSL is great! Except for it being slow at times, does not handle
+  forking/threading all that well (the old WSL that is, that I for
+  some reason still use :thinking:), and is very frustrating to use in
+  tandem with the rest of Windows. Why would you not want to make
+  Emacs start using WSL also?
+
+  The problem we face when trying to make (Windows) Emacs call
+  programs in WSL is converting paths. On Windows (where Emacs runs) a
+  path looks something like "C:/path/to.nowhere", while on WSL the
+  same file would be located at "/mnt/c/path/to.nowhere". Thankfully
+  Emacs does not follow the backslash convention for Windows paths so
+  converting between them is rather simple.
+
+  What follows in this section is a set of shell/bash scripts that
+  together make Emacs play nicely with programs in WSL. This list is
+  far from complete.
+
+  *win2wsl* (put it in WSL somewhere)
+  - Usage :: ~... | win2wsl~
+  - Description :: reads stdin and outputs the same data without
+    change to stdout except for when a Windows path is found, in which
+    case it is changed from ~X:~ to ~/mnt/X~. Backslashes are not
+    changed to forward slashes!
+  #+BEGIN_SRC sh
+  #!/bin/sh
+  # note nonportable use of ^ and $
+  sed -e 's#\(^\|[^[:alnum:]]\)\([a-zA-Z]\)\:\([/\\]\|$\)#\1/mnt/\l\2\3#g'
+  #+END_SRC
+
+  *wsl2win* (put it in WSL somewhere)
+  - Usage :: ~... | wsl2win~
+  - Description :: reads stdin and outputs the same data without
+    change to stdout except for when a WSL path is found, in which
+    case it is changed from ~/mnt/X~ to ~X:~. Forward slashes are not
+    changed to backslashes!
+  #+BEGIN_SRC sh
+  #!/bin/sh
+  # note nonportable use of ^ and $
+  # note this fails on two consecutive matches (e.g. "/mnt/a /mnt/b")
+  # since sed does not handle overlapping patterns
+  sed -e 's#\(^\|[^[:alnum:]]\)/mnt/\([a-zA-Z]\)\([^[:alnum:]]\|$\)#\1\u\2\:\3#g'
+  #+END_SRC
+
+  *runinwsl* (put it in WSL somewhere)
+  - Usage :: ~wsl.exe -e runinwsl [-aio] command [arguments...]~
+  - Description :: a helper wrapper around a call to the given command
+    that optionally transforms paths found in arguments, stdin, and
+    stdout to their expected forms.
+  #+BEGIN_SRC sh
+  #!/bin/bash
+
+  # this first part of the code was shamelessly stolen from
+  # https://stackoverflow.com/a/14203146
+
+  # what even is OPTIND :shrug:
+  OPTIND=1
+
+  transform_arguments=0
+  transform_stdin=0
+  transform_stdout=0
+
+  while getopts "aio" opt
+  do
+      case "$opt" in
+          a) transform_arguments=1
+             ;;
+          i) transform_stdin=1
+             ;;
+          o) transform_stdout=1
+             ;;
+      esac
+  done
+
+  shift $((OPTIND-1))
+
+  args=""
+  for arg in "$@"
+  do
+      if [ "$transform_arguments" -eq "1" ]
+      then
+          arg=$( win2wsl <<< "$arg" )
+      fi
+
+      # bash magic to check if $arg needs to be quoted
+      words=( $arg )
+      if [ "${#words[@]}" -eq "1" ]
+      then
+          args="$args $arg"
+      else
+          args="$args \"$arg\""
+      fi
+  done
+
+  # note wsl has some issues with not closing stdin correctly and it
+  # effects us here when redirecting stdin to sed; depending on how you
+  # use runinwsl, it might not close but rather hang until ctrl-d is
+  # sent
+
+  if [ "$transform_stdin" -eq "1" ]
+  then
+      if [ "$transform_stdout" -eq "1" ]
+      then
+          win2wsl <&0 | eval "$args" | wsl2win
+      else
+          win2wsl <&0 | eval "$args"
+      fi
+  else
+      if [ "$transform_stdout" -eq "1" ]
+      then
+          eval "$args" | wsl2win
+      else
+          eval "$args"
+      fi
+  fi
+  #+END_SRC
+
+** Packages
+
+   *git.cmd* (put it in Windows somewhere where Emacs can find it)
+   - Usage :: see the documentation of git.
+   - Description :: a helper wrapper around git so it can be easily
+     accessible from Windows without prior knowledge that it actually
+     will run in WSL :smiling_imp:
+   #+BEGIN_SRC sh
+   @echo off
+   wsl.exe -e runinwsl -io git %*
+   #+END_SRC
+
+   Several packages use git in some capacity. Some packages work
+   simply by having access to this wrapper, others need a bit more
+   customization.
+
+*** Magit
+
+   Due to the many hacks Magit do in order to be fast, it will
+   completely and utterly fail to make sense of our git executable. We
+   have to stop it from being smart by overwriting
+   ~magit-git-executable~ to simply contain ~git~, no more, no
+   less. It is customizable.
+
+   Some commands that Magit send to git contain the caret (^) symbol
+   which, as it happens, is an escape character in cmd. Currently,
+   there is no code in Magit that takes this into account, probably
+   because it hacks around not using cmd but something else that ... I
+   have no idea what is happening. However I do know that every
+   occurrence of this escape character needs to be escaped! (Yes, from
+   itself :facepalm:) Due to the way we setup these scripts it is
+   actually not enough to escape them once, but twice, so instead of
+   outputing ~^{commit/tree}~ we must modify Magit to output
+   ~^^^^{commit/tree}~, beautiful! There are seven places in total:
+   - two in magit-diff.el,
+   - three in magit-diff.el,
+   - and two in magit-wip.el.
+
+   *Protip*: you can find these places (and some extra regex patterns
+   which should not be changed) with ~grep -Fn ^{
+   path/to/elpa/magit-some-version~.
+
+   *Protip*: after the change, recompile Magit by evaluating
+   ~(byte-recompile-directory "path/to/elpa/magit-some-version" nil
+   'force)~.
+
+*** Project
+
+   *xargs.cmd* (put it in Windows somewhere where Emacs can find it)
+   - Usage :: no one but the most legendary Emacs hackers knows how to
+     use this program.
+   - Description :: a helper wrapper around xargs so it can be easily
+     accessible from Windows without prior knowledge that it actually
+     will run in WSL :smiling_imp:
+   #+BEGIN_SRC sh
+   @echo off
+   wsl.exe -e runinwsl -io xargs %*
+   #+END_SRC
+
+   Grepping within a project requires grep... or find... or none of
+   them? I have no idea of how this works but apparently
+   ~project-find-regexp~ only needs xargs. Maybe it is different for
+   non-git projects :shrug: No change needed in Emacs for this to
+   work.
+
+*** ?spell
+
+   *aspell.cmd* (put it in Windows somewhere where Emacs can find it)
+   - Usage :: ???
+   - Description :: a helper wrapper around Aspell so it can be easily
+     accessible from Windows without prior knowledge that it actually
+     will run in WSL :smiling_imp:
+   #+BEGIN_SRC sh
+   @echo off
+   wsl.exe -e runinwsl aspell %*
+   #+END_SRC
+
+   There must be a difference between Ispell and Aspell... not to
+   mention Flyspell. No change needed in Emacs for this to work.

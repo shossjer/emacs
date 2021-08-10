@@ -2,6 +2,7 @@
 
 !.gitignore
 !LICENSE.txt
+!README.org
 !init.el
 !emoji-utils.el
 !project-utils.el
